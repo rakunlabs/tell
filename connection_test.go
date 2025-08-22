@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/worldline-go/tell"
+	"github.com/rakunlabs/tell"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/grpc"

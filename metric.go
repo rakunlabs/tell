@@ -9,8 +9,6 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	metricsdk "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
-
-	"github.com/worldline-go/tell/tglobal"
 )
 
 var defaultInterval = 5 * time.Second
@@ -44,7 +42,6 @@ func (c *Collector) MetricProvider(ctx context.Context, cfg MetricProviderSettin
 
 	options := []metricsdk.Option{
 		metricsdk.WithResource(resource.Environment()),
-		metricsdk.WithView(tglobal.MetricViews.GetViews()...),
 		metricsdk.WithReader(c.MetricReader),
 	}
 

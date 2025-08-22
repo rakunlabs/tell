@@ -1,29 +1,21 @@
 # tell
 
 [![License](https://img.shields.io/github/license/worldline-go/tell?color=red&style=flat-square)](https://raw.githubusercontent.com/worldline-go/tell/main/LICENSE)
-[![Go Report Card](https://goreportcard.com/badge/github.com/worldline-go/tell?style=flat-square)](https://goreportcard.com/report/github.com/worldline-go/tell)
-[![Go PKG](https://raw.githubusercontent.com/worldline-go/guide/main/badge/custom/reference.svg)](https://pkg.go.dev/github.com/worldline-go/tell)
+[![Go Report Card](https://goreportcard.com/badge/github.com/rakunlabs/tell?style=flat-square)](https://goreportcard.com/report/github.com/rakunlabs/tell)
+[![Go PKG](https://raw.githubusercontent.com/rakunlabs/.github/main/assets/badges/gopkg.svg)](https://pkg.go.dev/github.com/rakunlabs/tell)
 
 This library include metric and trace helper functions with opentelemetry.
 
 ```sh
-go get github.com/worldline-go/tell
+go get github.com/rakunlabs/tell
 ```
-
-To close some metrics and trace
 
 ```sh
 # if empty, metrics and trace providers and create noop provider to continue to work same as code perspective.
 # default is empty
 OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
-# Also TELEMETRY_COLLECTOR can usable for same thing
-# TELEMETRY_COLLECTOR=otel-collector:4317
-# inteval duration so send new metrics to otel collector (using time.Parseduration)
-# default 5s
-TELEMETRY_METRIC_PROVIDER_INTERVAL=5s
+# inteval duration so send new metrics to otel collector (using time.Parseduration) default 5s
 ```
-
-> `TELEMETRY_` prefix comes with igconfig!
 
 ## Otel Environment Values
 
@@ -38,13 +30,12 @@ Local testing more than one service with metrics, you should also provide this i
 OTEL_RESOURCE_ATTRIBUTES=service.name=transaction_api,service.instance.id=xyz123
 ```
 
-In our stack this is show like that for swarm:
-
-```env
+```sh
+# Example in swarm
 OTEL_RESOURCE_ATTRIBUTES=service.name={{.Service.Name}},service.instance.id={{.Task.ID}},host.id={{.Node.ID}},host.name={{.Node.Hostname}}
 ```
 
-Check much more details of attributes in here [opentelemetry-specification](https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/resource/semantic_conventions/README.md)
+Check much more details of attributes in here [opentelemetry-semconv](https://opentelemetry.io/docs/specs/semconv/)
 
 You can also add your own values after that, these are global values for all services need to have.
 
@@ -58,8 +49,6 @@ type Config struct {
     Telemetry tell.Config
 }
 ```
-
-`igconfig` can handle our default values, don't need to change configuration.
 
 After that in main of program pass the telemetry config to create new collector which is connection collector and initialize telemetry and trace providers with common attributes.
 
@@ -160,34 +149,6 @@ if err != nil {
 c.AddRegister(regUp)
 ```
 
-### View
-
-View is design how to looks like of your metrics. With this view you can setup your histogram bucket's values.
-
-`Name` is important, explain which metric we will change.  
-In here we used `*request_duration_seconds` because application name will come as prefix.
-
-```go
-customBucketView := metric.NewView(
-    metric.Instrument{
-        Name: "*request_duration_seconds",
-    },
-    metric.Stream{
-        Aggregation: metric.AggregationExplicitBucketHistogram{
-            Boundaries: []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
-        },
-    },
-)
-```
-
-If you have views, you need to add before to initialize metric provider.
-
-Add to the tglobal
-
-```go
-tglobal.MetricViews.Add("echo", GetViews()) // accepts []view.View
-```
-
 ### Example Usage
 
 Add to the project this package [_example/telemetry/metric.go](/_example/telemetry/metric.go) to hold the custom metrics.
@@ -222,22 +183,7 @@ telemetry.GlobalMeter.Success.Add(ctx, 1, telemetry.GlobalAttr...)
 
 ### Echo
 
-#### Metric
-
-```sh
-go get github.com/worldline-go/tell/metric/metricecho
-```
-
-Use our Echo framework's middleware to share metrics.
-
-```go
-// add echo metrics
-e.Use(metricecho.HTTPMetrics(nil))
-```
-
-metricecho package has init function and records views always, no need to additional settings.
-
-#### Trace
+#### Metric & Trace
 
 Trace is not ready for finops, we will add details later.
 
@@ -247,10 +193,12 @@ go get go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otel
 
 ```go
 // add otel tracing
-e.Use(otelecho.Middleware(config.LoadConfig.AppName, otelecho.WithTracerProvider(otel.GetTracerProvider())))
+e.Use(otelecho.Middleware(ServiceName))
 ```
 
 ### Runtime
+
+> Runtime added as default but need to enable in the configuration.
 
 ```sh
 go get go.opentelemetry.io/contrib/instrumentation/runtime
@@ -307,14 +255,6 @@ defer span.End()
 span.SetAttributes(attribute.Key("request.count.set").Int64(countInt))
 ```
 
-### Echo
-
-Use echo's trace, it will automatically make propagation and starting client type as server.
-
-```go
-e.Use(otelecho.Middleware(config.ServiceName))
-```
-
 ### Http Request
 
 Create new span to measure http time but don't forget to add span kind as client.
@@ -340,12 +280,6 @@ ctx, span := otel.Tracer("").Start(ctx,
 )
 defer span.End()
 ```
-
-## Development
-
-To test in local machine deploy otel-collector, grafana, prometheus use our telemetry example repo:
-
-https://github.com/worldline-go/telemetry_example
 
 ## Resources
 

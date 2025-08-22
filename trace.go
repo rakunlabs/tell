@@ -9,7 +9,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.34.0"
 )
 
 // Get provider and don't forget to shutdown after usage, it will help to flush last messages.
@@ -37,23 +37,7 @@ func (c *Collector) TraceProvider(ctx context.Context, _ TraceProviderSettings) 
 
 	// to much resources not need all of them this is just for example
 	res, err := resource.New(ctx,
-		// resource.WithContainer(),
-		// resource.WithContainerID(),
 		resource.WithFromEnv(),
-		// resource.WithHost(),
-		// resource.WithOS(),
-		// resource.WithOSDescription(),
-		// resource.WithOSType(),
-		// resource.WithProcess(),
-		// resource.WithProcessCommandArgs(),
-		// resource.WithProcessExecutableName(),
-		// resource.WithProcessExecutablePath(),
-		// resource.WithProcessOwner(),
-		// resource.WithProcessPID(),
-		// resource.WithProcessRuntimeDescription(),
-		// resource.WithProcessRuntimeName(),
-		// resource.WithProcessRuntimeVersion(),
-		// resource.WithTelemetrySDK(),
 		resource.WithSchemaURL(semconv.SchemaURL),
 		// resource.WithAttributes(
 		// 	c.GetAttributes()...,

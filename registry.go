@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"time"
 
-	"github.com/rs/zerolog/log"
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel/metric"
 	metricNoop "go.opentelemetry.io/otel/metric/noop"
@@ -85,7 +85,7 @@ func New(ctx context.Context, cfg Config, opts ...grpc.DialOption) (*Collector, 
 
 	logger := cfg.Logger
 	if logger == nil {
-		logger = adapterKV{Log: log.Logger}
+		logger = slog.Default()
 	}
 
 	c := &Collector{
@@ -121,7 +121,7 @@ func New(ctx context.Context, cfg Config, opts ...grpc.DialOption) (*Collector, 
 	}
 
 	// metric
-	if cfg.Collector != "" && !cfg.Metric.Disable {
+	if cfg.Collector != "" && !cfg.Metric.Disabled {
 		if err := c.MetricProvider(ctx, cfg.Metric.Provider); err != nil {
 			return nil, fmt.Errorf("failed initialize metric provider; %w", err)
 		}
@@ -145,7 +145,7 @@ func New(ctx context.Context, cfg Config, opts ...grpc.DialOption) (*Collector, 
 	c.SetMetricProviderGlobal()
 
 	// trace
-	if cfg.Collector != "" && !cfg.Trace.Disable {
+	if cfg.Collector != "" && !cfg.Trace.Disabled {
 		if err := c.TraceProvider(ctx, cfg.Trace.Provider); err != nil {
 			return nil, fmt.Errorf("failed initialize metric provider; %w", err)
 		}
