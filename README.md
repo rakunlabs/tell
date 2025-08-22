@@ -1,6 +1,6 @@
 # tell
 
-[![License](https://img.shields.io/github/license/worldline-go/tell?color=red&style=flat-square)](https://raw.githubusercontent.com/worldline-go/tell/main/LICENSE)
+[![License](https://img.shields.io/github/license/rakunlabs/tell?color=red&style=flat-square)](https://raw.githubusercontent.com/rakunlabs/tell/main/LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/rakunlabs/tell?style=flat-square)](https://goreportcard.com/report/github.com/rakunlabs/tell)
 [![Go PKG](https://raw.githubusercontent.com/rakunlabs/.github/main/assets/badges/gopkg.svg)](https://pkg.go.dev/github.com/rakunlabs/tell)
 
