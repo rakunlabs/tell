@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
@@ -19,7 +20,10 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-var ErrSetConnetion = errors.New("grpc connection not set")
+var (
+	// ErrSetConnection is returned when provider initialization requires a gRPC connection.
+	ErrSetConnection = errors.New("grpc connection not set")
+)
 
 const defaultShutdownTimeOut = 2 * time.Second
 
@@ -38,7 +42,7 @@ type Collector struct {
 	// ShutdownTimeOut for closing providers, default 2 seconds.
 	ShutdownTimeOut time.Duration
 
-	isUp       int64
+	isUp       atomic.Int64
 	registered []metric.Registration
 	logger     Logger
 }
@@ -60,7 +64,7 @@ func (c *Collector) setUpMetric() {
 	}
 
 	regUp, err := meter.RegisterCallback(func(_ context.Context, o metric.Observer) error {
-		o.ObserveInt64(up, c.isUp)
+		o.ObserveInt64(up, c.isUp.Load())
 
 		return nil
 	}, up)
@@ -130,7 +134,7 @@ func New(ctx context.Context, cfg Config, opts ...grpc.DialOption) (*Collector, 
 
 		// add enabled metrics
 		if cfg.Metric.Default.GoRuntime {
-			if err := runtime.Start(); err != nil {
+			if err := runtime.Start(runtime.WithMeterProvider(c.MeterProvider)); err != nil {
 				return nil, fmt.Errorf("failed to start runtime metrics; %w", err)
 			}
 
@@ -160,7 +164,7 @@ func New(ctx context.Context, cfg Config, opts ...grpc.DialOption) (*Collector, 
 	c.SetTraceProviderGlobal()
 
 	// everything is works fine, send up information
-	c.isUp = 1
+	c.isUp.Store(1)
 	c.setUpMetric()
 
 	return c, nil
@@ -169,7 +173,7 @@ func New(ctx context.Context, cfg Config, opts ...grpc.DialOption) (*Collector, 
 // Shutdown to flush and shutdown providers and close grpc connection.
 // Providers will not export metrics after shutdown.
 func (c *Collector) Shutdown() (err error) {
-	c.isUp = 0
+	c.isUp.Store(0)
 
 	// set the default context timeout
 	if c.ShutdownTimeOut == 0 {

@@ -19,7 +19,7 @@ var defaultInterval = 5 * time.Second
 // MetricProvider set the provider to collector and return it.
 func (c *Collector) MetricProvider(ctx context.Context, cfg MetricProviderSettings) error {
 	if c.Conn == nil {
-		return ErrSetConnetion
+		return ErrSetConnection
 	}
 
 	interval := cfg.Interval

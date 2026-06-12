@@ -22,7 +22,7 @@ import (
 
 func (c *Collector) TraceProvider(ctx context.Context, _ TraceProviderSettings) error {
 	if c.Conn == nil {
-		return ErrSetConnetion
+		return ErrSetConnection
 	}
 
 	// Set up a trace exporter
