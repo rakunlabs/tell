@@ -58,6 +58,45 @@ func TestApplyEnv(t *testing.T) {
 			},
 		},
 		{
+			name: "default protocol",
+			want: func(t *testing.T, cfg Config) {
+				if cfg.Protocol != ProtocolGRPC {
+					t.Errorf("protocol = %q", cfg.Protocol)
+				}
+			},
+		},
+		{
+			name: "http protocol from env with base path",
+			env:  map[string]string{envProtocol: "HTTP/protobuf", envEndpoint: "https://otel-collector:4318/otlp/"},
+			want: func(t *testing.T, cfg Config) {
+				if cfg.Protocol != ProtocolHTTPProtobuf {
+					t.Errorf("protocol = %q", cfg.Protocol)
+				}
+				if cfg.Collector != "otel-collector:4318" {
+					t.Errorf("collector = %q", cfg.Collector)
+				}
+				if !cfg.TLS.Enabled {
+					t.Error("tls should be enabled")
+				}
+				if got := cfg.httpURLPath("traces"); got != "/otlp/v1/traces" {
+					t.Errorf("trace path = %q", got)
+				}
+			},
+		},
+		{
+			name: "http protocol default path",
+			cfg:  Config{Protocol: ProtocolHTTPProtobuf, Collector: "otel-collector:4318"},
+			env:  map[string]string{envProtocol: "grpc"},
+			want: func(t *testing.T, cfg Config) {
+				if cfg.Protocol != ProtocolHTTPProtobuf {
+					t.Errorf("protocol = %q", cfg.Protocol)
+				}
+				if got := cfg.httpURLPath("metrics"); got != "/v1/metrics" {
+					t.Errorf("metric path = %q", got)
+				}
+			},
+		},
+		{
 			name: "sdk disabled",
 			env:  map[string]string{envSDKDisabled: "true"},
 			want: func(t *testing.T, cfg Config) {
@@ -100,7 +139,7 @@ func TestApplyEnv(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, k := range []string{
-				envEndpoint, envInsecure, envCertificate, envClientCertificate, envClientKey,
+				envEndpoint, envProtocol, envInsecure, envCertificate, envClientCertificate, envClientKey,
 				envCompression, envSDKDisabled, envMetricsExporter, envTracesExporter,
 			} {
 				t.Setenv(k, "")

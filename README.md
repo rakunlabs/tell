@@ -14,6 +14,8 @@ go get github.com/rakunlabs/tell
 # default is empty
 # https:// scheme enables TLS, http:// scheme is removed
 OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
+# grpc (default) or http/protobuf
+OTEL_EXPORTER_OTLP_PROTOCOL=grpc
 # interval in milliseconds to send new metrics to otel collector, default 5000 (5s)
 # config's metric.provider.interval has priority over this value
 OTEL_METRIC_EXPORT_INTERVAL=5000
@@ -23,7 +25,8 @@ Configuration values have priority, empty values are filled from these environme
 
 | Env | Description |
 |---|---|
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | Collector grpc endpoint (`collector`) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Collector endpoint (`collector`) |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | `grpc` (default) or `http/protobuf` (`protocol`) |
 | `OTEL_EXPORTER_OTLP_INSECURE` | `false` enables TLS (`tls.enabled`) |
 | `OTEL_EXPORTER_OTLP_CERTIFICATE` | CA file (`tls.ca_file`) |
 | `OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE` / `OTEL_EXPORTER_OTLP_CLIENT_KEY` | Client cert and key (`tls.cert_file`, `tls.key_file`) |
@@ -37,6 +40,21 @@ Configuration values have priority, empty values are filled from these environme
 | `OTEL_SDK_DISABLED` | `true` uses noop metric and trace providers |
 | `OTEL_METRICS_EXPORTER` / `OTEL_TRACES_EXPORTER` | `none` uses noop provider for that signal |
 | `OTEL_SERVICE_NAME` / `OTEL_RESOURCE_ATTRIBUTES` | Resource attributes, check below |
+
+### HTTP
+
+Set protocol to `http/protobuf` to send with OTLP over HTTP, usually to port `4318`.  
+Metrics are sent to `/v1/metrics` and traces to `/v1/traces`, a path in the endpoint is used as base path.
+
+```sh
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+# sends to http://otel-collector:4318/v1/metrics and /v1/traces
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+# sends to https://example.com/otlp/v1/metrics and /otlp/v1/traces
+# OTEL_EXPORTER_OTLP_ENDPOINT=https://example.com/otlp
+```
+
+`tell.New` grpc dial options are not used with http protocol.
 
 ## Otel Environment Values
 
@@ -81,6 +99,9 @@ if err != nil {
 
 defer collector.Shutdown()
 ```
+
+`Shutdown` sends the remaining metrics and traces before closing, it waits up to `ShutdownTimeOut` (default 2s) for each provider.  
+Deferred calls are not run with `os.Exit` (`log.Fatal`), return from the function instead to not lose the last data.
 
 Now you initialized and connected to our collector. You can send some metrics and trace data.
 

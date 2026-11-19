@@ -29,6 +29,12 @@ func (c *Collector) MetricProvider(ctx context.Context, cfg MetricProviderSettin
 		return fmt.Errorf("failed to create metric exporter: %w", err)
 	}
 
+	c.metricProvider(metricExporter, cfg)
+
+	return nil
+}
+
+func (c *Collector) metricProvider(metricExporter metricsdk.Exporter, cfg MetricProviderSettings) {
 	// Priority: config value, then OTEL_METRIC_EXPORT_INTERVAL (read by the SDK), then defaultInterval.
 	// WithInterval overrides the env value, so it is only set when the env is not given.
 	var readerOpts []metricsdk.PeriodicReaderOption
@@ -52,8 +58,6 @@ func (c *Collector) MetricProvider(ctx context.Context, cfg MetricProviderSettin
 
 	c.MeterProviderSDK = meterProvider
 	c.MeterProvider = meterProvider
-
-	return nil
 }
 
 // SetMetricProviderGlobal to globally set provider.

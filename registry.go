@@ -92,6 +92,7 @@ func (c *Collector) AddRegister(r metric.Registration) {
 // New generate collectors based on configuration.
 //
 // Empty configuration values are filled with OTEL_* environment values, check the Config fields.
+// Dial options are used only with the grpc protocol.
 func New(ctx context.Context, cfg Config, opts ...grpc.DialOption) (*Collector, error) {
 	cfg.applyEnv()
 
@@ -107,26 +108,32 @@ func New(ctx context.Context, cfg Config, opts ...grpc.DialOption) (*Collector, 
 	useMetric := cfg.Collector != "" && !cfg.Metric.Disabled
 	useTrace := cfg.Collector != "" && !cfg.Trace.Disabled
 
-	// check grpc need
 	if useMetric || useTrace {
-		c.logger.Info(fmt.Sprintf("opentelemetry collector endpoint: [%s]", cfg.Collector))
+		c.logger.Info(fmt.Sprintf("opentelemetry collector endpoint: [%s], protocol: [%s]", cfg.Collector, cfg.Protocol))
 
-		dialOpts, err := cfg.dialOptions()
-		if err != nil {
-			return nil, err
+		switch cfg.Protocol {
+		case ProtocolGRPC:
+			dialOpts, err := cfg.dialOptions()
+			if err != nil {
+				return nil, err
+			}
+
+			// user options have priority
+			if err := c.ConnectGRPC(ctx, cfg.Collector, append(dialOpts, opts...)...); err != nil {
+				return nil, err
+			}
+
+			c.logger.Info("connected to grpc opentelemetry collector")
+		case ProtocolHTTPProtobuf:
+			// http exporters use their own clients, created with the providers
+		default:
+			return nil, fmt.Errorf("unsupported protocol [%s], use %s or %s", cfg.Protocol, ProtocolGRPC, ProtocolHTTPProtobuf)
 		}
-
-		// user options have priority
-		if err := c.ConnectGRPC(ctx, cfg.Collector, append(dialOpts, opts...)...); err != nil {
-			return nil, err
-		}
-
-		c.logger.Info("connected to grpc opentelemetry collector")
 	}
 
 	// metric
 	if useMetric {
-		if err := c.MetricProvider(ctx, cfg.Metric.Provider); err != nil {
+		if err := c.metricProviderFor(ctx, cfg); err != nil {
 			return nil, errors.Join(fmt.Errorf("failed initialize metric provider; %w", err), c.Shutdown())
 		}
 
@@ -150,7 +157,7 @@ func New(ctx context.Context, cfg Config, opts ...grpc.DialOption) (*Collector, 
 
 	// trace
 	if useTrace {
-		if err := c.TraceProvider(ctx, cfg.Trace.Provider); err != nil {
+		if err := c.traceProviderFor(ctx, cfg); err != nil {
 			return nil, errors.Join(fmt.Errorf("failed initialize trace provider; %w", err), c.Shutdown())
 		}
 
@@ -168,6 +175,34 @@ func New(ctx context.Context, cfg Config, opts ...grpc.DialOption) (*Collector, 
 	c.setUpMetric()
 
 	return c, nil
+}
+
+// metricProviderFor sets the metric provider with the exporter of the configured protocol.
+func (c *Collector) metricProviderFor(ctx context.Context, cfg Config) error {
+	if cfg.Protocol != ProtocolHTTPProtobuf {
+		return c.MetricProvider(ctx, cfg.Metric.Provider)
+	}
+
+	opts, err := cfg.metricHTTPOptions()
+	if err != nil {
+		return err
+	}
+
+	return c.MetricProviderHTTP(ctx, cfg.Metric.Provider, opts...)
+}
+
+// traceProviderFor sets the trace provider with the exporter of the configured protocol.
+func (c *Collector) traceProviderFor(ctx context.Context, cfg Config) error {
+	if cfg.Protocol != ProtocolHTTPProtobuf {
+		return c.TraceProvider(ctx, cfg.Trace.Provider)
+	}
+
+	opts, err := cfg.traceHTTPOptions()
+	if err != nil {
+		return err
+	}
+
+	return c.TraceProviderHTTP(ctx, cfg.Trace.Provider, opts...)
 }
 
 // dialOptions returns grpc options for TLS, server name and compression.
@@ -200,7 +235,7 @@ func (cfg Config) dialOptions() ([]grpc.DialOption, error) {
 	return opts, nil
 }
 
-// Shutdown to flush and shutdown providers and close grpc connection.
+// Shutdown to flush and shutdown providers and close grpc connection if exists.
 // Providers will not export metrics after shutdown.
 func (c *Collector) Shutdown() (err error) {
 	c.isUp.Store(0)

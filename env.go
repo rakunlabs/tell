@@ -8,7 +8,15 @@ import (
 )
 
 const (
+	// ProtocolGRPC sends OTLP data with gRPC, default protocol.
+	ProtocolGRPC = "grpc"
+	// ProtocolHTTPProtobuf sends OTLP data with HTTP and protobuf encoding.
+	ProtocolHTTPProtobuf = "http/protobuf"
+)
+
+const (
 	envEndpoint          = "OTEL_EXPORTER_OTLP_ENDPOINT"
+	envProtocol          = "OTEL_EXPORTER_OTLP_PROTOCOL"
 	envInsecure          = "OTEL_EXPORTER_OTLP_INSECURE"
 	envCertificate       = "OTEL_EXPORTER_OTLP_CERTIFICATE"
 	envClientCertificate = "OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE"
@@ -25,6 +33,12 @@ func (cfg *Config) applyEnv() {
 	if cfg.Collector == "" {
 		cfg.Collector = os.Getenv(envEndpoint)
 	}
+
+	if cfg.Protocol == "" {
+		cfg.Protocol = os.Getenv(envProtocol)
+	}
+
+	cfg.Protocol = normalizeProtocol(cfg.Protocol)
 
 	if v, ok := envBool(envSDKDisabled); ok && v {
 		cfg.Metric.Disabled = true
@@ -59,9 +73,10 @@ func (cfg *Config) applyEnv() {
 	cfg.Collector = cfg.parseEndpoint(cfg.Collector)
 }
 
-// parseEndpoint returns the grpc target of the endpoint.
+// parseEndpoint returns the host target of the endpoint.
 //   - "https://host:4317" enables TLS and returns "host:4317".
 //   - "http://host:4317" returns "host:4317" without TLS.
+//   - Path of the URL is kept as base path for the http protocol, e.g. "http://host:4318/otlp".
 //   - Other values are returned as they are, e.g. "host:4317" or "dns:///host:4317".
 func (cfg *Config) parseEndpoint(endpoint string) string {
 	endpoint = strings.TrimSpace(endpoint)
@@ -74,13 +89,26 @@ func (cfg *Config) parseEndpoint(endpoint string) string {
 	switch strings.ToLower(u.Scheme) {
 	case "https":
 		cfg.TLS.Enabled = true
+		cfg.urlPath = u.Path
 
 		return u.Host
 	case "http":
+		cfg.urlPath = u.Path
+
 		return u.Host
 	}
 
 	return endpoint
+}
+
+// normalizeProtocol returns the protocol in lower case, empty value is "grpc".
+func normalizeProtocol(protocol string) string {
+	protocol = strings.ToLower(strings.TrimSpace(protocol))
+	if protocol == "" {
+		return ProtocolGRPC
+	}
+
+	return protocol
 }
 
 func envBool(key string) (value, ok bool) {

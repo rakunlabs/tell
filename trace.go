@@ -29,6 +29,12 @@ func (c *Collector) TraceProvider(ctx context.Context, _ TraceProviderSettings) 
 		return fmt.Errorf("failed to create trace exporter: %w", err)
 	}
 
+	c.traceProvider(traceExporter)
+
+	return nil
+}
+
+func (c *Collector) traceProvider(traceExporter tracesdk.SpanExporter) {
 	// Register the trace exporter with a TracerProvider, using a batch
 	// span processor to aggregate spans before export.
 	bsp := tracesdk.NewBatchSpanProcessor(traceExporter)
@@ -40,8 +46,6 @@ func (c *Collector) TraceProvider(ctx context.Context, _ TraceProviderSettings) 
 	)
 
 	c.TracerProvider = c.TracerProviderSDK
-
-	return nil
 }
 
 // SetTraceProviderGlobal to globally set provider.

@@ -8,17 +8,22 @@ import (
 )
 
 type Config struct {
-	// Collector to show URL of grpc otel collector.
+	// Collector to show URL of otel collector.
 	//   - If empty disable for metric and trace. It is add a noop metric/trace and your code works without change.
 	//   - Default gets from OTEL_EXPORTER_OTLP_ENDPOINT env var.
 	//   - "https://" scheme enables TLS, "http://" scheme is removed.
+	//   - For http protocol, path of the URL is the base path, "/v1/metrics" and "/v1/traces" are added to it.
 	Collector string `cfg:"collector" json:"collector"`
+	// Protocol of the OTLP exporters, "grpc" or "http/protobuf".
+	//   - Default gets from OTEL_EXPORTER_OTLP_PROTOCOL env var, otherwise "grpc".
+	Protocol string `cfg:"protocol" json:"protocol"`
 	// TLS settings, also gets from OTEL_EXPORTER_OTLP_INSECURE=false, OTEL_EXPORTER_OTLP_CERTIFICATE,
 	// OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE and OTEL_EXPORTER_OTLP_CLIENT_KEY env vars.
 	TLS TLSConfig `cfg:"tls" json:"tls"`
 	// ServerName sets the grpc.WithAuthority with extract host(server_name) for connection.
+	//   - For http protocol, it is used as TLS server name.
 	ServerName string `cfg:"server_name" json:"server_name"`
-	// Compression for grpc calls, "gzip" or "none".
+	// Compression for exports, "gzip" or "none".
 	//   - Default gets from OTEL_EXPORTER_OTLP_COMPRESSION env var.
 	Compression string `cfg:"compression" json:"compression"`
 
@@ -26,6 +31,9 @@ type Config struct {
 	Trace  TraceSettings  `cfg:"trace" json:"trace"`
 
 	Logger Logger `cfg:"-" json:"-"`
+
+	// urlPath is the base path of the collector URL, used by http protocol.
+	urlPath string
 }
 
 type TLSConfig struct {
