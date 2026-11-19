@@ -59,7 +59,7 @@ func TestData(t *testing.T) {
 		t.Fatal("failed to init telemetry", err)
 	}
 
-	defer collector.Shutdown()
+	defer func() { _ = collector.Shutdown() }()
 
 	mp := otel.GetMeterProvider()
 

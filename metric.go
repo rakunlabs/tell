@@ -8,10 +8,11 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	metricsdk "go.opentelemetry.io/otel/sdk/metric"
-	"go.opentelemetry.io/otel/sdk/resource"
 )
 
 var defaultInterval = 5 * time.Second
+
+const envMetricExportInterval = "OTEL_METRIC_EXPORT_INTERVAL"
 
 // MetricProvider adds required labels to readers and return a meterprovider.
 // Run shutdown will flush any remaining spans and shut down the exporter.
@@ -22,26 +23,26 @@ func (c *Collector) MetricProvider(ctx context.Context, cfg MetricProviderSettin
 		return ErrSetConnection
 	}
 
-	interval := cfg.Interval
-	if interval == 0 {
-		interval = defaultInterval
-	}
-
-	// Set up a trace exporter
+	// Set up a metric exporter
 	metricExporter, err := otlpmetricgrpc.New(ctx, otlpmetricgrpc.WithGRPCConn(c.Conn))
 	if err != nil {
-		return fmt.Errorf("failed to create trace exporter: %w", err)
+		return fmt.Errorf("failed to create metric exporter: %w", err)
 	}
 
-	c.MetricReader = metricsdk.NewPeriodicReader(
-		metricExporter, metricsdk.WithInterval(interval),
-	)
+	// Priority: config value, then OTEL_METRIC_EXPORT_INTERVAL (read by the SDK), then defaultInterval.
+	// WithInterval overrides the env value, so it is only set when the env is not given.
+	var readerOpts []metricsdk.PeriodicReaderOption
+	switch {
+	case cfg.Interval > 0:
+		readerOpts = append(readerOpts, metricsdk.WithInterval(cfg.Interval))
+	case !validEnvMillis(envMetricExportInterval):
+		readerOpts = append(readerOpts, metricsdk.WithInterval(defaultInterval))
+	}
 
-	// Set resource for auto show some attributes about this service
-	// Set OTEL_SERVICE_NAME or OTEL_RESOURCE_ATTRIBUTES
+	c.MetricReader = metricsdk.NewPeriodicReader(metricExporter, readerOpts...)
 
 	options := []metricsdk.Option{
-		metricsdk.WithResource(resource.Environment()),
+		metricsdk.WithResource(c.Resource()),
 		metricsdk.WithReader(c.MetricReader),
 	}
 

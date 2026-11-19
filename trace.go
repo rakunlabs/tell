@@ -7,9 +7,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
-	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.34.0"
 )
 
 // Get provider and don't forget to shutdown after usage, it will help to flush last messages.
@@ -35,21 +33,9 @@ func (c *Collector) TraceProvider(ctx context.Context, _ TraceProviderSettings) 
 	// span processor to aggregate spans before export.
 	bsp := tracesdk.NewBatchSpanProcessor(traceExporter)
 
-	// to much resources not need all of them this is just for example
-	res, err := resource.New(ctx,
-		resource.WithFromEnv(),
-		resource.WithSchemaURL(semconv.SchemaURL),
-		// resource.WithAttributes(
-		// 	c.GetAttributes()...,
-		// ),
-	)
-	if err != nil {
-		return fmt.Errorf("failed resource new; %w", err)
-	}
-
+	// Sampler gets from OTEL_TRACES_SAMPLER and OTEL_TRACES_SAMPLER_ARG, default is parentbased_always_on.
 	c.TracerProviderSDK = tracesdk.NewTracerProvider(
-		tracesdk.WithSampler(tracesdk.AlwaysSample()),
-		tracesdk.WithResource(res),
+		tracesdk.WithResource(c.Resource()),
 		tracesdk.WithSpanProcessor(bsp),
 	)
 
